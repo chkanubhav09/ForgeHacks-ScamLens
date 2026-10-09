@@ -1,23 +1,81 @@
 {
-  "dataset": "UCI SMS Spam Collection (2011)",
-  "source": "https://archive.ics.uci.edu/static/public/228/sms+spam+collection.zip",
-  "source_sha256": "1587ea43e58e82b14ff1f5425c88e17f8496bfcdb67a583dbff9eefaf9963ce3",
-  "seed": 42,
-  "split": "75/25 stratified after normalized-text deduplication",
-  "unique_messages": 5130,
-  "train_count": 3846,
-  "test_count": 1284,
-  "train_ham": 3375,
-  "train_spam": 471,
-  "vocabulary": 7442,
-  "threshold": 0.9,
-  "true_positive": 144,
-  "false_positive": 0,
-  "true_negative": 1126,
-  "false_negative": 14,
-  "precision": 1.0,
-  "recall": 0.9113924050632911,
-  "f1": 0.9536423841059603,
-  "accuracy": 0.9890965732087228,
-  "scope": "English historical SMS spam, NOT verified scams, modern phishing or Indian-language coverage."
+  "version": 2,
+  "dataset": "UCI SMS + IMC2025 English public smishing reports",
+  "source_urls": [
+    "https://archive.ics.uci.edu/static/public/228/sms+spam+collection.zip",
+    "https://raw.githubusercontent.com/reportsmishing/Smishing-Dataset-IMC25/main/dataset/final_dataset_output.csv"
+  ],
+  "source_sha256": [
+    "1587ea43e58e82b14ff1f5425c88e17f8496bfcdb67a583dbff9eefaf9963ce3",
+    "1bbd1e9e82c3ea023112207b80da268a5c4a07d2353c2b0898360ab037fa9a64"
+  ],
+  "source_rows": {
+    "UCI": 5574,
+    "IMC_all_languages": 33869,
+    "IMC_English_eligible": 22077
+  },
+  "unique_messages": 19090,
+  "conflicting_normalized_labels_dropped": 0,
+  "split": "60/20/20 group-disjoint by normalized opening 8 words; seeds42/43",
+  "train": {
+    "count": 11434,
+    "ham": 2668,
+    "spam_or_smishing": 8766,
+    "sources": {
+      "UCI": 3046,
+      "IMC2025": 8388
+    }
+  },
+  "validation": {
+    "count": 3754,
+    "ham": 919,
+    "spam_or_smishing": 2835,
+    "sources": {
+      "UCI": 1022,
+      "IMC2025": 2732
+    }
+  },
+  "test": {
+    "count": 3902,
+    "ham": 912,
+    "spam_or_smishing": 2990,
+    "sources": {
+      "UCI": 1016,
+      "IMC2025": 2886
+    }
+  },
+  "train_count": 11434,
+  "test_count": 3902,
+  "vocabulary": 6135,
+  "threshold": 0.8,
+  "validation_metrics": {
+    "true_positive": 2524,
+    "false_positive": 6,
+    "true_negative": 913,
+    "false_negative": 311,
+    "precision": 0.9976284584980237,
+    "recall": 0.890299823633157,
+    "f1": 0.9409133271202237,
+    "accuracy": 0.9155567394778903
+  },
+  "true_positive": 2710,
+  "false_positive": 4,
+  "true_negative": 908,
+  "false_negative": 280,
+  "precision": 0.9985261606484893,
+  "recall": 0.9063545150501672,
+  "f1": 0.9502103786816269,
+  "accuracy": 0.9272168118913378,
+  "uci_only_nb_clean_same_test": {
+    "true_positive": 1266,
+    "false_positive": 1,
+    "true_negative": 911,
+    "false_negative": 1724,
+    "precision": 0.9992107340173638,
+    "recall": 0.4234113712374582,
+    "f1": 0.594785059901339,
+    "accuracy": 0.5579190158892875
+  },
+  "scope": "Mixed English spam/public smishing reports versus historical benign SMS. Source/time imbalance, incomplete campaign grouping, no modern benign control, not representative Indian scam accuracy.",
+  "selection": "TF-IDF logistic vs TF-IDF NB, 7 thresholds each, select validation F1 subject to <=1% benign false-positive rate; final test untouched until selection."
 }
