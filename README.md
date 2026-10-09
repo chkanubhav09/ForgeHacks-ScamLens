@@ -14,7 +14,7 @@ Open http://localhost:8000 in your browser. On Linux/macOS use `python3` instead
 
 ## What actually works
 
-- Browser-local multinomial Naive Bayes inference from bundled learned parameters.
+- Browser-local TF-IDF logistic regression inference from bundled learned parameters.
 - Separate transparent rules for urgency, credentials, KYC, money, authority, reward, remote-access and family-impersonation cues.
 - Text-only URL parsing: actual host, username disguise, HTTP, shorteners, numeric IPs and punycode clues. Links are never opened or checked online.
 - Word contributions, model abstention for short/non-ASCII/low-vocabulary-overlap messages, explicit non-safety verdicts.
@@ -24,17 +24,34 @@ Open http://localhost:8000 in your browser. On Linux/macOS use `python3` instead
 ## Architecture
 
 ```
-Message -> local tokenizer -> learned Naive Bayes -> spam score & word evidence
+Message -> local tokenizer/TF-IDF -> logistic regression -> score & word evidence
         -> separate warning rules -> caution signals & safe actions
         -> URL parser -> host clues (no network)
 All outputs -> cautious triage UI; no 'safe' verdict
 ```
 
-## Model and reproducibility
+## Model v2: expanded data, honest evaluation
 
-`python3 train.py` downloads the UCI source, deduplicates normalized message text, stratifies a 75/25 split with seed 42, trains Laplace-smoothed multinomial Naive Bayes, and exports model.json and metrics.json. Standard library only. Threshold 0.90 was set before evaluation. Test data is excluded from fitting. The bundled evaluation has 3,846 training messages and 1,284 test messages: TP 144, FP 0, TN 1,126, FN 14. Spam precision 100% on this sample, recall 91.14%, F1 95.36%. **Not a scam-detection accuracy claim.** Zero false positives in this sample does not promise zero false positives in use. Scores are uncalibrated; model word evidence describes spam tendencies, not causal proof of fraud.
+19,090 unique usable English messages after normalization and deduplication. The sources contain 5,574 UCI rows plus 33,869 IMC2025 rows; only 22,077 English rows with nonempty text/scam labels from IMC are eligible. Non-English rows and one unlabeled report are excluded. Raw totals are NOT independent training examples. Spam and smishing are combined into one positive class, not differentiated.
 
-`node test.js` runs 13 deterministic engine tests. Node is only needed for development tests, not to run the app. The benchmark is historical English SMS spam, not a contemporary scam benchmark. Exact normalized duplicates are removed before splitting; related templates may remain across the split. Non-ASCII messages abstain conservatively, including English containing smart punctuation. Rule cues are heuristic and unvalidated on a representative scam dataset.
+`pip install -r requirements-training.txt` then `python3 train_v2.py` reproduces training. Runtime remains zero-install, browser only. The new pipeline exports TF-IDF (sublinear counts, L2 normalization) and logistic-regression coefficients to JSON. Browser inference matches Python probabilities within 1.2e-16 on 20 held-out fixtures. Original train.py remains the historical v1 baseline pipeline; running it overwrites model files, so use train_v2.py for the current model.
+
+Splits are group-disjoint by the normalized first eight words (URLs and placeholders normalized): 11,434 training / 3,754 validation / 3,902 test; seeds 42/43. Vocabulary and weights fit training only. Compare logistic regression and NB at seven thresholds on validation; select validation F1 subject to at most 1% benign false-positive rate. Selected threshold 0.80, then evaluate the final test once. Approximate opening-template grouping reduces leakage but cannot guarantee all related campaigns are separate.
+
+| Same new held-out set | UCI-only old-design NB | Expanded TF-IDF logistic |
+|---|---:|---:|
+| Accuracy | 55.79% | 92.72% |
+| Recall (spam/smishing) | 42.34% | 90.64% |
+| Precision | 99.92% | 99.85% |
+| F1 | 59.48% | 95.02% |
+| False positives / 912 benign | 1 | 4 |
+| Missed positives / 2,990 | 1,724 | 280 |
+
+The baseline is retrained using only UCI rows in the same NEW training partition, so it does not have access to new validation/test rows. Expanded data and a stronger model change together, so this comparison does not isolate their individual effects. V1's 98.91% accuracy/91.14% recall were on a different historical UCI-only split and cannot be compared directly. More useful data exposes harder cases; a lower headline number can be a more honest benchmark.
+
+**Not a real-world fraud probability or guarantee.** Benign controls remain historical UCI SMS while newer positives come from public user reports. Source/time imbalance can inflate separability. No modern benign control, multilingual benchmark, external Indian validation, campaign-complete grouping or score calibration. The rule layer is separately heuristic and has not been benchmarked. Spam is not the same as fraud. Non-ASCII messages conservatively abstain.
+
+`node test.js`: 13 deterministic engine tests. Chrome UI checks cover examples, abstention, clear, HTML escaping, local-only requests and 320/390px overflow. The app cannot detect whether AI wrote a message.
 
 ## Dataset attribution
 
@@ -43,6 +60,14 @@ Almeida, T. & Hidalgo, J. (2011). SMS Spam Collection [Dataset]. UCI Machine Lea
 Dataset: https://archive.ics.uci.edu/dataset/228/sms%2Bspam%2Bcollection
 
 UCI states CC BY 4.0; the original dataset readme and its attribution/use terms are preserved in DATASET_LICENSE.txt. Raw messages are not included in the repository. The trained parameter file contains word weights, not message records.
+
+### Added source: IMC 2025 public smishing reports
+
+Agarwal, Sharad; Papasavva, Antonis; Suarez-Tangil, Guillermo; Vasek, Marie (2025). *Fishing for Smishing: Understanding SMS Phishing Infrastructure and Strategies by Mining Public User Reports*. ACM IMC. https://doi.org/10.1145/3730567.3764431
+
+Author artifact: https://github.com/reportsmishing/Smishing-Dataset-IMC25 . CC BY 4.0, full license in IMC2025_LICENSE.txt. We filter English/labeled rows, remove placeholders during feature extraction and deduplicate. No raw reports or active links are shipped.
+
+Not used: the 73,470-row Indian mixed synthetic dataset requires sharing contact information/requesting access; the 10,191-row Mendeley expansion is LLM-generated, so adding it would pad volume with synthetic data; Sting9's linked public dump returned not found. We use the maximum useful verified accessible data found in this bounded build, not claim the world's largest dataset.
 
 ## Limits and safe use
 
