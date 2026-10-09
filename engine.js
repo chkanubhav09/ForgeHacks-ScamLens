@@ -1,7 +1,7 @@
 /* Local inference only. Messages never leave this module. */
 (function(root){
 'use strict';
-function tokenize(text){return text.toLowerCase().match(/[a-z0-9]+/g)||[];}
+function tokenize(text){return text.toLowerCase().replace(/<[^>]+>/g,' ').replace(/https?:\/\/\S+|www\.\S+/g,' urltoken ').match(/[a-z]+/g)||[];}
 const rules=[
  {id:'secret',rx:/\b(otp|one[ -]?time password|pin|password|cvv|verification code)\b/i,label:'Sensitive credential or code',explain:'Never share an OTP, PIN, password or CVV with someone who contacted you.'},
  {id:'urgency',rx:/\b(urgent|immediately|within\s+\d+|expire[sd]?|suspend(?:ed)?|blocked|last chance|act now)\b/i,label:'Pressure to act quickly',explain:'Urgency can stop you checking the request independently.'},
@@ -26,7 +26,7 @@ function inspectLinks(text){
 function analyze(text,model){
  text=String(text||'').trim(); if(!text)throw Error('Paste a message first.');if(text.length>10000)throw Error('Keep the message under 10,000 characters.');
  let ts=tokenize(text),known=ts.filter(t=>Object.prototype.hasOwnProperty.call(model.weights,t)),unique=[...new Set(known)];
- let score=model.prior+known.reduce((s,t)=>s+model.weights[t],0);
+ let counts={};for(let t of known)counts[t]=(counts[t]||0)+1;let features={};let norm=0;for(let t of unique){features[t]=(1+Math.log(counts[t]))*model.idf[t];norm+=features[t]**2;}norm=Math.sqrt(norm)||1;let score=model.bias;for(let t of unique){features[t]/=norm;score+=features[t]*model.weights[t];}
  let probability=1/(1+Math.exp(-Math.max(-700,Math.min(700,score))));
  let evidence=rules.filter(r=>r.rx.test(text)).map(({id,label,explain})=>({id,label,explain}));let links=inspectLinks(text);
  let coverage=ts.length?known.length/ts.length:0; let supported=ts.length>=4&&coverage>=.45&&!/[^\x00-\x7F]/.test(text);
@@ -35,8 +35,8 @@ function analyze(text,model){
  let risky=strong||(evidence.length>=3)||(links.some(l=>l.signals.length)&&evidence.length>=1);
  let level=(modelFlag||risky)?'High caution':(!supported||evidence.length||links.length?'Check independently':'No strong signals found');
  return {level,supported,modelFlag,ruleFlag:risky,spamScore:probability,coverage,tokenCount:ts.length,evidence,links,
-  contributors:unique.map(token=>({token,weight:model.weights[token]*known.filter(t=>t===token).length})).sort((a,b)=>b.weight-a.weight).filter(x=>x.weight>0).slice(0,6),
-  warning:'This is not proof of fraud or safety. The model learned historical English SMS spam, not modern scams or sender identity.'};
+  contributors:unique.map(token=>({token,weight:model.weights[token]*features[token]})).sort((a,b)=>b.weight-a.weight).filter(x=>x.weight>0).slice(0,6),
+  warning:'This is not proof of fraud or safety. The model learned English spam and public smishing reports. It cannot verify identity or prove fraud or safety.'};
 }
 const api={tokenize,analyze,inspectLinks};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ScamLens=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
